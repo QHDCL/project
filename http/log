@@ -1,0 +1,33 @@
+g++ -std=c++11 -o HttpServer HttpServer.cc -lpthread -D_DEBUG_
+In file included from HttpServer.hpp:6:0,
+                 from HttpServer.cc:2:
+ProtocolUtil.hpp: In constructor ‘Http_Response::Http_Response()’:
+ProtocolUtil.hpp:133:45: error: class ‘Http_Response’ does not have any field named ‘recourceSize’
+     Http_Response():blank("\r\n"),code(200),recourceSize(0)
+                                             ^
+HttpServer.cc: At global scope:
+HttpServer.cc:20:1: error: expected ‘}’ at end of input
+ }
+ ^
+In file included from HttpServer.hpp:6:0,
+                 from HttpServer.cc:2:
+ProtocolUtil.hpp: In member function ‘void Http_Request::HeaderParse()’:
+ProtocolUtil.hpp:239:25: error: a function-definition is not allowed here before ‘{’ token
+     bool IsMethodLegal(){
+                         ^
+ProtocolUtil.hpp:299:1: error: expected ‘}’ at end of input
+ };
+ ^
+ProtocolUtil.hpp: In static member function ‘static void Http_Request::Entry::ProcessPesponse(Http_Request::Connect*, Http_Request*, Http_Response*)’:
+ProtocolUtil.hpp:395:14: error: ‘class Http_Request’ has no member named ‘IsCgi’
+       if(rq->IsCgi()){
+              ^
+ProtocolUtil.hpp: In static member function ‘static void* Http_Request::Entry::HandlerRequest(void*)’:
+ProtocolUtil.hpp:406:14: warning: deleting ‘void*’ is undefined [enabled by default]
+       delete arg;
+              ^
+HttpServer.cc: At global scope:
+HttpServer.cc:20:1: error: expected unqualified-id at end of input
+ }
+ ^
+make: *** [HttpServer] Error 1
