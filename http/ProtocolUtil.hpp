@@ -28,6 +28,7 @@
 
 #define WEBROOT "wwwroot"
 #define HOMEPAGE "index.html"
+#define HTML_404 "wwwroot/404.html"
 
 const char *errorstr[] = {
 		"Normal",
@@ -63,14 +64,32 @@ class Util{
     static std::string CodeToDesc(int code){
       switch(code){
         case 200:
-          return "OK";
+          return "OK!";
+        case 400:
+          return "Bad Request!";
         case 404:
-          return "Not Found";
+          return "Not Found!";
+        case 500:
+          return "Internal Server Error!";
         default:
           break;
       }
       return "Unknow";
     }
+
+   static std::string CodeToExceptFile(int code){
+      switch(code){
+        case 404:
+          return HTML_404;
+        case 500:
+          return HTML_404;   //添加对应的网页路径
+        case 503:
+          return HTML_404;  //
+        default:
+          return "";
+      }
+    }
+
     //后缀映射为 媒体类型---这种做法不好,可map等
     static std::string SuffixToContent(std::string &suffix){
       if(suffix == ".css"){
@@ -86,6 +105,12 @@ class Util{
         return "application/x-jpg";
       }
       return "text/html";
+    }
+
+    static int FileSize(std::string &except_path){
+      struct stat st;
+      stat(except_path.c_str(),&st);
+      return st.st_size;
     }
 };
 
@@ -311,7 +336,7 @@ class Http_Request{
       rsp->SetPath(path);
       rsp->SetRecourSize(rs);
       LOG("Path is OK!",NORMAL);
-      return 0;
+      return 200;
     }
 
     //以请求方式判断读取
@@ -429,6 +454,14 @@ class Connect{
         send(sock, rsp_text.c_str(), rsp_text.size(), 0);
       }
     }
+
+    void ClearRequest(){
+      std::string line;
+      while(line != "\n"){
+        RecvOneLine(line);
+      }
+    }
+
     ~Connect(){
       close(sock);
     }
@@ -492,6 +525,7 @@ class Entry{
     return 200;
     }
     static int ProcessNonCgi(Connect *conn,Http_Request *rq,Http_Response *rsp){
+      int code = 200;
       rsp->MakeStatusLine();  //构建响应行
       rsp->MakeResponseHeader(); //构建响应头
       //rsp->MakeRespinseText(rq); //构建响应正文
@@ -500,16 +534,17 @@ class Entry{
       conn->SendHeader(rsp); //add \n-->添加空格
       conn->SendText(rsp, false);
       LOG("Send Response Done!",NORMAL);
+      return code;
     }
     static int ProcessPesponse(Connect *conn,Http_Request *rq,Http_Response *rsp){
       if(rq->IsCgi()){
         //传参  GET/POST  ?/正文
       LOG("MakeResponse Use Cgi",NORMAL);
-      ProcessCgi(conn, rq, rsp);
+      return ProcessCgi(conn, rq, rsp);
       }
       else{
         LOG("MakeRespone Use Non Cgi!",NORMAL);
-        ProcessNonCgi(conn, rq, rsp);
+        return ProcessNonCgi(conn, rq, rsp);
       }
     }
 
@@ -538,14 +573,16 @@ class Entry{
 
       //方法非法
       if(!rq->IsMethodLegal()){
+        code = 400;
+        conn->ClearRequest();
         LOG("Request Method Is Not Legal",WARNING);
         goto end;
       }
 
       rq->Uriparse();
       //路径非法
-      if(rq->IsPathLegal(rsp) != 0){
-        code = 404;
+      if((code = rq->IsPathLegal(rsp)) != 200){
+        conn->ClearRequest();
         LOG("file is not exist!",WARNING);
         goto end;
       }
@@ -560,10 +597,19 @@ class Entry{
         LOG("Http Request Recv Done,OK!",NORMAL);
       }
        
-      //处理响应
-      ProcessPesponse(conn,rq,rsp);
+      //处理响应----cgi  非cgi
+       code = ProcessPesponse(conn,rq,rsp);
 
 end:
+       if(code != 200){
+         std::string except_path = Util::CodeToExceptFile(code);
+         int rs = Util::FileSize(except_path);
+         rsp->SetPath(except_path);
+         rsp->SetRecourSize(rs);
+         ProcessNonCgi(conn, rq, rsp);
+       }
+
+
       delete conn;
       delete rq;
       delete rsp;
